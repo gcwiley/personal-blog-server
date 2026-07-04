@@ -1,6 +1,8 @@
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { User } from '../models/user.model.js';
+import { sendPasswordResetEmail } from '../helpers/email.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -64,7 +66,9 @@ export const signInUser = async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    const user = await User.scope('withPassword').findOne({ where: { username } });
+    const user = await User.scope('withPassword').findOne({
+      where: { username },
+    });
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -80,11 +84,9 @@ export const signInUser = async (req, res) => {
       });
     }
 
-    const token = jwt.sign(
-      { id: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
-    );
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
+      expiresIn: JWT_EXPIRES_IN,
+    });
 
     res.status(200).json({
       success: true,
@@ -110,4 +112,106 @@ export const signOutUser = (_req, res) => {
     success: true,
     message: 'Signed out successfully.',
   });
+};
+
+// FORGOT PASSWORD
+// Generates a short-lived reset token and emails the user a reset link.
+// Always responds with 200 to prevent email enumeration.
+export const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required.' });
+  }
+
+  try {
+    const user = await User.scope('withPassword').findOne({ where: { email } });
+
+    if (user) {
+      // generate a cryptographically random raw token (sent in email)
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      // store only the hash — never persist the raw token
+      const tokenHash = crypto
+        .createHash('sha256')
+        .update(rawToken)
+        .digest('hex');
+
+      user.resetPasswordToken = tokenHash;
+      user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+      await user.save();
+
+      const clientOrigin = process.env.CORS_ORIGIN || 'http://localhost:4200';
+      const resetUrl = `${clientOrigin}/reset-password?token=${rawToken}`;
+
+      await sendPasswordResetEmail(email, resetUrl);
+    }
+
+    // always return 200 so callers cannot enumerate registered emails
+    return res.status(200).json({
+      success: true,
+      message:
+        'If an account with that email exists, a reset link has been sent.',
+    });
+  } catch (error) {
+    console.error('Error in forgotPassword:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error processing password reset request.',
+      error: error.message,
+    });
+  }
+};
+
+// RESET PASSWORD
+// Validates the reset token and updates the user's password.
+export const resetPassword = async (req, res) => {
+  const { token, password } = req.body;
+
+  if (!token || !password) {
+    return res
+      .status(400)
+      .json({ error: 'Token and new password are required.' });
+  }
+
+  if (password.length < 8) {
+    return res
+      .status(400)
+      .json({ error: 'Password must be at least 8 characters.' });
+  }
+
+  try {
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.scope('withPassword').findOne({
+      where: { resetPasswordToken: tokenHash },
+    });
+
+    if (
+      !user ||
+      !user.resetPasswordExpires ||
+      user.resetPasswordExpires < new Date()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password reset token is invalid or has expired.',
+      });
+    }
+
+    user.password = await bcrypt.hash(password, 10);
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Password has been reset successfully. You can now sign in.',
+    });
+  } catch (error) {
+    console.error('Error in resetPassword:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error resetting password.',
+      error: error.message,
+    });
+  }
 };

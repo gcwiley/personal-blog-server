@@ -32,6 +32,10 @@ export async function loadSecrets() {
     process.env.PGSQL_DB_PASSWORD = await getSecret('PGSQL_DB_PASSWORD');
     process.env.JWT_SECRET = await getSecret('JWT_SECRET');
     process.env.CORS_ORIGIN = await getSecret('CORS_ORIGIN');
+    process.env.SMTP_HOST = await getSecret('SMTP_HOST');
+    process.env.SMTP_PORT = await getSecret('SMTP_PORT');
+    process.env.SMTP_USER = await getSecret('SMTP_USER');
+    process.env.SMTP_PASS = await getSecret('SMTP_PASS');
     console.log('Secret loaded from Google Secret Manager.');
   } else {
     console.log('Using local .env file for secrets.');

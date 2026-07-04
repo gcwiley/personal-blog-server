@@ -1,6 +1,7 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import chalk from 'chalk';
+// spacer
 import express from 'express';
 import logger from 'morgan';
 import helmet from 'helmet';
@@ -19,7 +20,6 @@ import { authRouter } from './routes/auth.routes.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PORT = process.env.PORT || 3000;
-// CORS origin for Angular client (adjust as needed for production)
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:4200';
 const angularDistPath = path.join(__dirname, './dist/my-blog-client/browser');
 
@@ -69,6 +69,10 @@ app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 // --- STATIC FILES ---
 app.use(express.static(angularDistPath));
 
+// serve uploaded attachments
+const uploadsPath = path.join(__dirname, '../uploads');
+app.use('/uploads', express.static(uploadsPath));
+
 // --- API RATE LIMITING ---
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -113,7 +117,7 @@ app.use((error, req, res, next) => {
 // --- STARTUP SEQUENCE ---
 const startServer = async () => {
   try {
-    // 1. establish DB connection 
+    // 1. establish DB connection
     await connectToDatabase();
 
     // 2. sync models
