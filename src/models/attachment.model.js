@@ -36,20 +36,20 @@ const Attachment = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    // mime type 
+    // mime type
     mimeType: {
       type: DataTypes.STRING,
       allowNull: false,
     },
     // file size in bytes
     fileSize: {
-      type: DataTypes.STRING,
+      type: DataTypes.BIGINT,
       allowNull: false,
     },
     // optional description of the attachment
     description: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
     },
     // uploaded by user id
     uploadedBy: {
@@ -59,6 +59,7 @@ const Attachment = sequelize.define(
         model: 'Users',
         key: 'id',
       },
+      onDelete: 'RESTRICT',
     },
   },
   {

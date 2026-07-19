@@ -1,17 +1,15 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import chalk from 'chalk';
-// spacer
 import express from 'express';
 import logger from 'morgan';
-import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 
 import { sequelize, connectToDatabase } from './db/connect_to_sqldb.js';
 import './models/index.js';
 
-// --- IMPORT ROUTERS ---
+// --- IMPORT ROUTES ---
 import { postRouter } from './routes/post.routes.js';
 import { userRouter } from './routes/user.routes.js';
 import { authRouter } from './routes/auth.routes.js';
@@ -28,27 +26,6 @@ const angularDistPath = path.join(__dirname, './dist/my-blog-client/browser');
 const app = express();
 // trust first proxy for secure cookies when behind a proxy (e.g. GAE)
 app.set('trust proxy', 1);
-
-// --- HELMET ---
-app.use(
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"], // add hashes here if Angular inline scripts are blocked
-        scriptSrcAttr: ["'unsafe-inline'"], // allows inline event handlers (e.g. onclick) from Angular/libraries; fix at source when possible
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", 'data:', 'blob:'], // blob: added for NgOptimizedImage
-        fontSrc: ["'self'", 'data:'], // data: for inlined base64 fonts
-        connectSrc: ["'self'"], // explicit (was falling back to default-src)
-        objectSrc: ["'none'"], // security best practice
-        baseUri: ["'self'"], // prevents <base> tag injection
-        formAction: ["'self'"],
-        frameAncestors: ["'none'"],
-      },
-    },
-  }),
-);
 
 // --- CORS ---
 app.use(

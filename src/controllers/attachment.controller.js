@@ -69,7 +69,7 @@ export const addAttachment = async (req, res) => {
       storedName: req.file.filename,
       filePath: `/uploads/${req.file.filename}`,
       mimeType: req.file.mimetype, // store MIME type for validation
-      fileSize: String(req.file.size), // store as string to match model definition
+      fileSize: req.file.size, 
       description,
       uploadedBy: req.user.id,
     });

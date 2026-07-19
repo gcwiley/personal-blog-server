@@ -35,7 +35,7 @@ export async function loadSecrets() {
     process.env.SMTP_HOST = await getSecret('SMTP_HOST');
     process.env.SMTP_PORT = await getSecret('SMTP_PORT');
     process.env.SMTP_USER = await getSecret('SMTP_USER');
-    process.env.SMTP_PASS = await getSecret('SMTP_PASS');
+    process.env.SMTP_PASSWORD = await getSecret('SMTP_PASSWORD');
     console.log('Secret loaded from Google Secret Manager.');
   } else {
     console.log('Using local .env file for secrets.');

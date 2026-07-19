@@ -23,6 +23,13 @@ export const registerNewUser = async (req, res) => {
       .json({ error: 'Username, email, and password are required.' });
   }
 
+  // check password length
+  if (password.length < 8) {
+    return res
+      .status(400)
+      .json({ error: 'Password must be at least 8 characters.' });
+  }
+
   try {
     // checks if user already exists
     const existingUser = await User.findOne({ where: { email } });
@@ -32,6 +39,7 @@ export const registerNewUser = async (req, res) => {
         .json({ error: 'A user with this email already exists.' });
     }
 
+    // hash the password before storing it
     const hashedPassword = await bcrypt.hash(password, 10);
     // pass email to the creation method
     const user = await User.create({
@@ -40,10 +48,15 @@ export const registerNewUser = async (req, res) => {
       password: hashedPassword,
     });
 
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
-      expiresIn: JWT_EXPIRES_IN,
-      algorithm: 'HS256',
-    });
+    // generate a JWT token for the new user
+    const token = jwt.sign(
+      { id: user.id, email: user.email, username: user.username },
+      JWT_SECRET,
+      {
+        expiresIn: JWT_EXPIRES_IN,
+        algorithm: 'HS256',
+      },
+    );
 
     res.status(201).json({
       success: true,
@@ -66,7 +79,15 @@ export const signInUser = async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    const user = await User.scope('withPassword').findOne({
+    // basic input validation 
+    if (!username || !password) {
+      return res
+        .status(400)
+        .json({ error: 'Username and password are required.' });
+    }
+
+    // Use unscoped query to include password field
+    const user = await User.unscoped().findOne({
       where: { username },
     });
     if (!user) {
@@ -76,6 +97,7 @@ export const signInUser = async (req, res) => {
       });
     }
 
+    // Compare the provided password with the hashed password in the database
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({
@@ -84,9 +106,13 @@ export const signInUser = async (req, res) => {
       });
     }
 
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
-      expiresIn: JWT_EXPIRES_IN,
-    });
+    const token = jwt.sign(
+      { id: user.id, email: user.email, username: user.username },
+      JWT_SECRET,
+      {
+        expiresIn: JWT_EXPIRES_IN,
+      },
+    );
 
     res.status(200).json({
       success: true,
@@ -114,10 +140,10 @@ export const signOutUser = (_req, res) => {
   });
 };
 
-// FORGOT PASSWORD
-// Generates a short-lived reset token and emails the user a reset link.
-// Always responds with 200 to prevent email enumeration.
+// FORGOT USER PASSWORD
 export const forgotPassword = async (req, res) => {
+  // Generates a short-lived reset token and emails the user a reset link.
+  // Always responds with 200 to prevent email enumeration.
   const { email } = req.body;
 
   if (!email) {
@@ -125,7 +151,7 @@ export const forgotPassword = async (req, res) => {
   }
 
   try {
-    const user = await User.scope('withPassword').findOne({ where: { email } });
+    const user = await User.findOne({ where: { email } });
 
     if (user) {
       // generate a cryptographically random raw token (sent in email)
@@ -162,9 +188,9 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
-// RESET PASSWORD
-// Validates the reset token and updates the user's password.
+// RESET USER PASSWORD
 export const resetPassword = async (req, res) => {
+  // Validates the reset token and updates the user's password.
   const { token, password } = req.body;
 
   if (!token || !password) {
@@ -182,7 +208,7 @@ export const resetPassword = async (req, res) => {
   try {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
-    const user = await User.scope('withPassword').findOne({
+    const user = await User.findOne({
       where: { resetPasswordToken: tokenHash },
     });
 

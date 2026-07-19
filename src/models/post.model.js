@@ -30,7 +30,7 @@ const Post = sequelize.define(
       // favorite flag to mark a post as a favorite
       isFavorite: {
          type: DataTypes.BOOLEAN,
-         defaultValue: false, // provide a default value of false
+         defaultValue: false, 
       },
       // date of post publication
       publishedDate: {
