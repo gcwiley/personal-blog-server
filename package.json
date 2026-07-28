@@ -2,7 +2,7 @@
   "name": "personal-blog-server",
   "version": "1.0.0",
   "description": "My personal blog web application.",
-  "main": "app.js",
+  "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --env-file=.env --watch src/server.js",

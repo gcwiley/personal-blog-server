@@ -46,8 +46,11 @@ app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 // --- STATIC FILES ---
 app.use(express.static(angularDistPath));
 
-// serve uploaded attachments
-const uploadsPath = path.join(__dirname, '../uploads');
+// serve uploaded attachments — use /tmp/uploads in production (App Engine filesystem is read-only)
+const uploadsPath =
+  process.env.NODE_ENV === 'production'
+    ? '/tmp/uploads'
+    : path.join(__dirname, '../uploads');
 app.use('/uploads', express.static(uploadsPath));
 
 // --- API RATE LIMITING ---
@@ -77,7 +80,14 @@ app.use('/api/posts', postRouter);
 app.use('/api/users', userRouter);
 
 // catch-all route to serve Angular app for any non-API routes (for client-side routing)
+// requests for static assets (.js, .css, etc.) that weren't served by express.static
+// must NOT fall back to index.html — doing so causes the browser to cache text/html
+// for asset URLs, producing MIME type errors on reload (often showing as 304).
 app.get('{*splat}', (req, res) => {
+  const ext = path.extname(req.path);
+  if (ext && ext !== '.html') {
+    return res.status(404).end();
+  }
   res.sendFile(path.join(angularDistPath, 'index.html'));
 });
 
