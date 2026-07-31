@@ -7,7 +7,8 @@ import { isValidUUID } from '../helpers/validate.js';
 // CREATE NEW POST
 export const newPost = async (req, res) => {
   try {
-    const { title, author, body, category, favorite, publishedDate } = req.body;
+    const { title, author, body, category, favorite, publishedDate, tags } =
+      req.body;
     const post = await Post.create({
       title,
       author,
@@ -15,6 +16,7 @@ export const newPost = async (req, res) => {
       category,
       favorite,
       publishedDate: new Date(publishedDate),
+      tags: Array.isArray(tags) ? tags : [],
     });
     res.status(201).json({
       success: true,
@@ -122,7 +124,10 @@ export const updatePostById = async (req, res) => {
       body: req.body.body,
       category: req.body.category,
       favorite: req.body.favorite,
-      publishedDate: req.body.publishedDate ? new Date(req.body.publishedDate) : undefined,
+      publishedDate: req.body.publishedDate
+        ? new Date(req.body.publishedDate)
+        : undefined,
+      tags: Array.isArray(req.body.tags) ? req.body.tags : post.tags,
     });
 
     res.status(200).json({
