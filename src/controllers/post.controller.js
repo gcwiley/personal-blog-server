@@ -7,6 +7,7 @@ import { isValidUUID } from '../helpers/validate.js';
 // CREATE NEW POST
 export const newPost = async (req, res) => {
   try {
+    // destructure the request body to get the post data
     const { title, author, body, category, favorite, publishedDate, tags } =
       req.body;
     const post = await Post.create({
@@ -24,6 +25,7 @@ export const newPost = async (req, res) => {
       data: post,
     });
   } catch (error) {
+    // log the error to the console for debugging purposes
     console.error('Error creating post:', error);
     res.status(400).json({
       success: false,
@@ -76,6 +78,7 @@ export const getPosts = async (req, res) => {
 // GET POST BY ID
 export const getPostById = async (req, res) => {
   try {
+    // destructure the ID from the request parameters
     const { id } = req.params;
 
     // validate the ID format before querying the database
@@ -111,6 +114,7 @@ export const getPostById = async (req, res) => {
 // UPDATE POST BY ID
 export const updatePostById = async (req, res) => {
   try {
+    // destructure the ID from the request parameters
     const post = await Post.findByPk(req.params.id);
 
     if (!post) {

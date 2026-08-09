@@ -7,6 +7,7 @@ import { loadSecrets } from './secrets.js';
 // Note: This is a top-level await, which is supported in ES modules (type: "module" in package.json).
 
 // Load secrets from Google Secret Manager or .env file
+// This ensures that the Sequelize instance is configured with the correct environment variables before any models are defined or database connections are attempted.
 await loadSecrets();
 
 // Import the app.js module after secrets are loaded 
