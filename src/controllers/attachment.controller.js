@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { Attachment } from '../models/index.js';
-import { isValidUUID } from '../helpers/validate.js';
+import { isValidUUID } from '../utils/validate.js';
 import { UPLOAD_DIR } from '../middleware/upload.middleware.js';
 
 // GET - fetch all attachments for a post

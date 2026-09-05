@@ -2,7 +2,7 @@ import { Post } from '../models/post.model.js';
 import { Op } from 'sequelize';
 
 // import validate ID function
-import { isValidUUID } from '../helpers/validate.js';
+import { isValidUUID } from '../utils/validate.js';
 
 // CREATE NEW POST
 export const newPost = async (req, res) => {

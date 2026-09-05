@@ -2,7 +2,8 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { User } from '../models/user.model.js';
-import { sendPasswordResetEmail } from '../helpers/email.js';
+
+import { sendPasswordResetEmail } from '../utils/email.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -130,7 +131,7 @@ export const signInUser = async (req, res) => {
   }
 };
 
-// SIGN OUT USER
+// SIGN OUT CURRENT USER
 export const signOutUser = (_req, res) => {
   // JWT is stateless — client discards the token
   // If you add a token blocklist later, handle it here
@@ -188,7 +189,7 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
-// RESET USER PASSWORD
+// RESET USERS PASSWORD
 export const resetPassword = async (req, res) => {
   // Validates the reset token and updates the user's password.
   const { token, password } = req.body;

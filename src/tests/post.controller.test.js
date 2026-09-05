@@ -18,7 +18,7 @@ mock.module(new URL('../models/post.model.js', import.meta.url).href, {
   namedExports: { Post: MockPost },
 });
 
-mock.module(new URL('../helpers/validate.js', import.meta.url).href, {
+mock.module(new URL('../utils/validate.js', import.meta.url).href, {
   namedExports: { isValidUUID: mockIsValidUUID },
 });
 

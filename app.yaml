@@ -1,6 +1,6 @@
-# This is the configuration file for deploying the Node.js application to Google App Engine.
+# This file contains the configuration settings for deploying the personal blog server to Google App Engine.
 
-# The runtime specifies the Node.js version to use. Node.js 24 is the latest LTS version as of this writing.
+# The runtime specifies the Node.js version to use. Node.js 24 is the latest LTS version
 runtime: nodejs24
 
 # The instance class defines the amount of memory and CPU available to your application.
