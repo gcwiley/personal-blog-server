@@ -16,6 +16,11 @@ const Post = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    // display name of the post's author
+    author: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
     // body content of the post
     body: {
       type: DataTypes.TEXT,

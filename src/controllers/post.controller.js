@@ -1,13 +1,12 @@
 import { Post } from '../models/post.model.js';
 import { Op } from 'sequelize';
 
-// import validate ID function
+// validate ID
 import { isValidUUID } from '../utils/validate.js';
 
 // CREATE NEW POST
 export const newPost = async (req, res) => {
   try {
-    // destructure the request body to get the post data
     const { title, author, body, category, favorite, publishedDate, tags } =
       req.body;
     const post = await Post.create({
@@ -25,7 +24,6 @@ export const newPost = async (req, res) => {
       data: post,
     });
   } catch (error) {
-    // log the error to the console for debugging purposes
     console.error('Error creating post:', error);
     res.status(400).json({
       success: false,
@@ -35,7 +33,7 @@ export const newPost = async (req, res) => {
   }
 };
 
-// GET POSTS (WITH PAGINATION)
+// GET ALL POSTS (WITH PAGINATION)
 export const getPosts = async (req, res) => {
   try {
     // parse pagination parameters from query string, with default values
@@ -78,7 +76,6 @@ export const getPosts = async (req, res) => {
 // GET POST BY ID
 export const getPostById = async (req, res) => {
   try {
-    // destructure the ID from the request parameters
     const { id } = req.params;
 
     // validate the ID format before querying the database
@@ -197,7 +194,7 @@ export const getPostCount = async (req, res) => {
   }
 };
 
-// GET 5 RECENT POSTS
+// GET RECENT POSTS
 export const getRecentlyCreatedPosts = async (req, res) => {
   try {
     const mostRecentPosts = await Post.findAll({

@@ -110,7 +110,7 @@ const startServer = async () => {
     // 2. sync models
     if (process.env.NODE_ENV !== 'production') {
       // in development, sync models with the database (alter tables to match models)
-      await sequelize.sync({ alter: true });
+      await sequelize.sync({ force: true });
       console.log(chalk.green('Database models synced successfully.'));
     }
 
