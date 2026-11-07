@@ -23,11 +23,7 @@ function createTransport() {
   });
 }
 
-/**
- * Sends a password reset email to the given address.
- * @param {string} to  - recipient email address
- * @param {string} resetUrl - the full reset-password URL (includes the raw token)
- */
+// Sends a password reset email to the given address.
 export async function sendPasswordResetEmail(to, resetUrl) {
   const transport = createTransport();
   const from = process.env.SMTP_FROM || process.env.SMTP_USER;

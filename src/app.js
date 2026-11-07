@@ -17,7 +17,7 @@ import { authRouter } from './routes/auth.routes.js';
 // --- CONFIGURATION ---
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000; // server port number
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:4200';
 const angularDistPath = path.join(__dirname, './dist/my-blog-client/browser');
 

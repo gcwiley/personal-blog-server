@@ -1,0 +1,10 @@
+# Google Cloud Build configuration for building and deploying to Cloud Run
+# Usage: gcloud builds submit --region=us-east4 --config=cloudbuild.yaml
+
+steps:
+  # Step 1: Build and push the container image using Google Cloud Buildpacks
+  - name: 'gcr.io/k8s-skaffold/pack'
+    entrypoint: 'pack'
+    args:
+      - "build"
+      - fix this!

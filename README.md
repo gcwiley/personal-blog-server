@@ -1,6 +1,6 @@
 # Personal Blog Web Application
 
-## Overview
+## Introduction
 
 A Node.js/Express REST API backend for a personal blog web application. Serves an Angular SPA from
 `dist/my-blog-client/browser` and exposes a JSON API under `/api`.
@@ -9,7 +9,7 @@ The API provides three resource groups:
 
 - **Posts** — full CRUD for blog posts, plus paginated listing, full-text search across title, category, and date, a recent-posts feed, and a post count endpoint.
 - **Users** — authenticated profile management (read, update, delete) scoped to the signed-in user.
-- **Auth** — JWT-based registration, sign-in, and sign-out.
+- **Auth** — fix this! - use event tracker as a guide.
 
 In production the server runs on Google App Engine (Node.js 24), connects to a Cloud SQL PostgreSQL instance over a Unix socket, loads secrets from Google Cloud Secret Manager, and stores uploaded files in Google Cloud Storage. In development it connects to a local PostgreSQL instance over TCP using credentials from a `.env` file.
 
@@ -18,14 +18,13 @@ In production the server runs on Google App Engine (Node.js 24), connects to a C
 - **Runtime**: Node.js 24 (ESM modules — `"type": "module"` in `package.json`)
 - **Framework**: Express 5
 - **Database**: PostgreSQL via Sequelize ORM (hosted on Google Cloud SQL)
-- **Auth**: JWT (`jsonwebtoken`) — HS256 signed Bearer tokens
+- **Auth**: Fix this! Use Event Tracker as a guide
 - **File Storage**: Google Cloud Storage (via `multer` + `@google-cloud/storage`)
 - **Secrets**: Google Cloud Secret Manager (production) / `.env` file (development)
 - **Deploy Target**: Google App Engine (`app.yaml`, `nodejs24` runtime)
 
 ## Security
 
-- **Helmet** — sets security-related HTTP response headers, including a strict Content Security Policy
 - **CORS** — restricted to the configured `CORS_ORIGIN`
 - **Rate limiting** — 100 requests / 15 min on all `/api` routes; stricter 20 requests / 15 min on `/api/auth`
 - **JWT** — HS256, verified on every protected request; `JWT_SECRET` is required at startup
