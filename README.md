@@ -9,9 +9,13 @@ The API provides three resource groups:
 
 - **Posts** — full CRUD for blog posts, plus paginated listing, full-text search across title, category, and date, a recent-posts feed, and a post count endpoint.
 - **Users** — authenticated profile management (read, update, delete) scoped to the signed-in user.
-- **Auth** — Uses **OAuth2 Proxy** as an authentication gateway
+- **Auth** — Uses **OAuth2 Proxy** as an authentication gateway with Google SSO
 
-In production the server runs on Google App Engine (Node.js 24), connects to a Cloud SQL PostgreSQL instance over a Unix socket, loads secrets from Google Cloud Secret Manager, and stores uploaded files in Google Cloud Storage. In development it connects to a local PostgreSQL instance over TCP using credentials from a `.env` file.
+In production the server runs on Google Cloud Run (two containers: OAuth2 Proxy as
+the public ingress, this app as a sidecar), connects to a Cloud SQL PostgreSQL
+instance over a Unix socket, loads secrets from Google Cloud Secret Manager, and
+stores uploaded files in Google Cloud Storage. In development it connects to a local
+PostgreSQL instance over TCP using credentials from a `.env` file.
 
 ## Tech Stack
 
@@ -21,7 +25,9 @@ In production the server runs on Google App Engine (Node.js 24), connects to a C
 - **Auth**: Uses **OAuth2 Proxy** as an authentication gateway.
 - **File Storage**: Google Cloud Storage (via `multer` + `@google-cloud/storage`)
 - **Secrets**: Google Cloud Secret Manager (production) / `.env` file (development)
-- **Deploy Target**: Google App Engine (`app.yaml`, `nodejs24` runtime)
+- **Deploy Target**: Google Cloud Run — see [docs/oauth2-proxy-deployment.md](./docs/oauth2-proxy-deployment.md)
+  for the full setup/deploy runbook (Google OAuth client, secrets, first deploy, and
+  local testing via `docker compose up` from this directory)
 
 ## Security
 

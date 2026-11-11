@@ -29,37 +29,22 @@ const User = sequelize.define(
         notEmpty: true,
       },
     },
-    // Password field (hashed in practice, but just a string here for simplicity)
+    // Password field is nullable — users authenticate via Google SSO (OAuth2 Proxy)
+    // and have no local password. Kept only in case a non-SSO account type is added later.
     password: {
       type: DataTypes.STRING,
-      allowNull: false,
-    },
-    // SHA-256 hash of the raw reset token (raw token is sent by email, never stored)
-    resetPasswordToken: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    // expiry timestamp for the reset token
-    resetPasswordExpires: {
-      type: DataTypes.DATE,
       allowNull: true,
     },
   },
   {
     timestamps: true,
-    // modern pattern — excludes password from all queries by default
+    // excludes password from all queries by default
     defaultScope: {
       attributes: { exclude: ['password'] },
     },
-    // unscoped() available when password IS needed e.g. sign in
-    scopes: {
-      withPassword: {
-        attributes: { include: ['password'] },
-      },
-    },
     indexes: [
-      { fields: ['username'] }, // fast username lookup on sign in
-      { fields: ['email'] },    // fast email lookup on register
+      { fields: ['username'] },
+      { fields: ['email'] }, // fast email lookup when exchanging a proxy session
     ],
   }
 );

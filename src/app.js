@@ -4,6 +4,7 @@ import chalk from 'chalk';
 import express from 'express';
 import logger from 'morgan';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 
 import { sequelize, connectToDatabase } from './db/connect_to_sqldb.js';
@@ -42,6 +43,8 @@ app.use(logger(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 // --- BODY PARSERS ---
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+// parses the httpOnly session cookie set by createSessionFromProxy
+app.use(cookieParser());
 
 // --- STATIC FILES ---
 app.use(express.static(angularDistPath));

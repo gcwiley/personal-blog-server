@@ -1,0 +1,4 @@
+# Google account(s) allowed to sign in to this blog (one email per line).
+# OAuth2 Proxy rejects any Google-authenticated user whose email isn't listed here,
+# even though Google itself successfully verified their identity.
+gcwiley@gmail.com

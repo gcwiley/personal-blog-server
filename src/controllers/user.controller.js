@@ -1,4 +1,3 @@
-import bcrypt from 'bcrypt';
 import { User } from '../models/user.model.js';
 
 // GET USER PROFILE
@@ -30,12 +29,13 @@ export const getUserProfile = async (req, res) => {
 // UPDATE USER PROFILE
 export const updateUserProfile = async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    // identity (username/email) is managed by Google SSO — only username is
+    // editable locally as a display name; password-based accounts no longer exist
+    const { username, email } = req.body;
     const updates = {};
 
     if (username != null) updates.username = username;
     if (email != null) updates.email = email;
-    if (password != null) updates.password = await bcrypt.hash(password, 10);
 
     // guard against empty update body
     if (Object.keys(updates).length === 0) {

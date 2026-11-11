@@ -3,6 +3,7 @@
 
 # environmental variables file
 .env
+.env.oauth2-proxy
 
 # Google App Engine config file
 app.yaml

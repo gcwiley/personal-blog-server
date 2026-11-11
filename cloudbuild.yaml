@@ -1,10 +1,56 @@
-# Google Cloud Build configuration for building and deploying to Cloud Run
-# Usage: gcloud builds submit --region=us-east4 --config=cloudbuild.yaml
+# Google Cloud Build configuration: builds the Angular client, copies its output
+# into this project (the same thing `npm run build-move` does locally), builds the
+# self-contained app image from THIS directory only, and deploys the OAuth2 Proxy +
+# app multi-container Cloud Run service defined in deploy/service.yaml.
+#
+# Usage: gcloud builds submit --region=us-east4 --config=personal-blog-server/cloudbuild.yaml .
+# (run from the repo root — Cloud Build needs to see personal-blog-client/ source to
+# build it in step 1, even though the Docker image itself only ever packages this
+# directory, exactly like your local workflow)
+
+substitutions:
+  _REGION: us-east4
+  _AR_REPO: personal-blog # Artifact Registry repository name
 
 steps:
-  # Step 1: Build and push the container image using Google Cloud Buildpacks
-  - name: 'gcr.io/k8s-skaffold/pack'
-    entrypoint: 'pack'
+  # Step 1: build the Angular client and copy its output into
+  # personal-blog-server/src/dist/my-blog-client/browser — the same script you run
+  # locally (personal-blog-client/scripts/build-move.sh)
+  - name: 'node:24'
+    dir: personal-blog-client
+    entrypoint: bash
     args:
-      - "build"
-      - fix this!
+      - '-c'
+      - |
+        npm ci
+        npm run build-move
+
+  # Step 2: build the app image — self-contained to personal-blog-server/, which
+  # already has the Angular build output in place from step 1
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/app:$SHORT_SHA'
+      - personal-blog-server
+
+  # Step 3: push the image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - push
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/app:$SHORT_SHA'
+
+  # Step 4: substitute the built image into the service manifest and deploy both
+  # containers (OAuth2 Proxy as ingress, app as sidecar) together
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        sed "s|APP_IMAGE|${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/app:$SHORT_SHA|g" \
+          personal-blog-server/deploy/service.yaml > /workspace/service.rendered.yaml
+        gcloud run services replace /workspace/service.rendered.yaml \
+          --region=${_REGION}
+
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/app:$SHORT_SHA'

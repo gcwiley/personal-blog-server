@@ -1,9 +1,6 @@
-import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
+import ms from 'ms';
 import { User } from '../models/user.model.js';
-
-import { sendPasswordResetEmail } from '../utils/email.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -12,44 +9,99 @@ if (!JWT_SECRET) {
 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
-// REGISTER NEW USER
-export const registerNewUser = async (req, res) => {
-  // extract email alongside username and password
-  const { username, email, password } = req.body;
+// validated once at startup so a malformed JWT_EXPIRES_IN fails loudly instead of
+// silently producing a session-only cookie (ms() returns undefined on bad input)
+const SESSION_COOKIE_MAX_AGE_MS = ms(JWT_EXPIRES_IN);
+if (!SESSION_COOKIE_MAX_AGE_MS || SESSION_COOKIE_MAX_AGE_MS <= 0) {
+  throw new Error(`FATAL ERROR: JWT_EXPIRES_IN ("${JWT_EXPIRES_IN}") is not a valid duration.`);
+}
 
-  // basic input validation
-  if (!username || !email || !password) {
-    return res
-      .status(400)
-      .json({ error: 'Username, email, and password are required.' });
+// Defense-in-depth: this app is only ever meant to be reached through OAuth2 Proxy,
+// which forwards X-Forwarded-Email only after verifying the user against Google.
+// But nothing in this process enforces that network topology — a misconfigured
+// ingress, a local `npm run dev`, or a future deploy mistake could expose this
+// endpoint directly, and whoever reaches it could set that header themselves and
+// mint a session as anyone. This allowlist is the code-level backstop: even a fully
+// spoofed header can only ever authenticate as one of these pre-approved emails.
+const ALLOWED_EMAILS = (process.env.ALLOWED_EMAILS || '')
+  .split(',')
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
+if (ALLOWED_EMAILS.length === 0) {
+  throw new Error('FATAL ERROR: ALLOWED_EMAILS is not defined.');
+}
+
+// name of the httpOnly cookie that carries the app JWT
+export const SESSION_COOKIE_NAME = 'app_session';
+
+// Shared so signOutUser's clearCookie options exactly match the cookie set here —
+// mismatched options (e.g. different `path`/`sameSite`) silently fail to clear it.
+const SESSION_COOKIE_OPTIONS = {
+  httpOnly: true, // never readable from JS — the primary XSS mitigation
+  secure: process.env.NODE_ENV === 'production',
+  // 'lax' blocks the cookie on cross-site POST/fetch requests (CSRF) while still
+  // allowing normal top-level navigation to the app
+  sameSite: 'lax',
+  path: '/',
+};
+
+// strips characters Google's preferred_username/email-local-part shouldn't contain
+// but that the User model doesn't itself validate, and caps length defensively
+const sanitizeUsername = (value) =>
+  value.replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 50);
+
+// finds the first username not already taken, starting with `base` and appending a
+// numeric suffix on collision (e.g. two Google accounts both named "alex")
+const resolveUniqueUsername = async (base) => {
+  let candidate = base;
+  let suffix = 1;
+  // eslint-disable-next-line no-await-in-loop -- sequential by design, collisions are rare
+  while (await User.findOne({ where: { username: candidate } })) {
+    candidate = `${base}${suffix}`;
+    suffix += 1;
+  }
+  return candidate;
+};
+
+// EXCHANGE OAUTH2 PROXY SESSION FOR AN APP SESSION COOKIE
+//
+// OAuth2 Proxy sits in front of the whole app and authenticates the browser against
+// Google. It forwards the verified identity to this server via X-Forwarded-* headers,
+// so this request can only reach Express if the user already has a valid Google-backed
+// session. We trust those headers (subject to the ALLOWED_EMAILS check above), JIT-
+// provision a local User record on first login (no password — Google is the identity
+// provider), and set a short-lived app JWT as an httpOnly cookie — it is never
+// exposed to client-side JavaScript.
+export const createSessionFromProxy = async (req, res) => {
+  const email = req.get('X-Forwarded-Email')?.trim().toLowerCase();
+
+  if (!email) {
+    return res.status(401).json({
+      success: false,
+      message:
+        'No authenticated session found. Requests must pass through OAuth2 Proxy.',
+    });
   }
 
-  // check password length
-  if (password.length < 8) {
-    return res
-      .status(400)
-      .json({ error: 'Password must be at least 8 characters.' });
+  if (!ALLOWED_EMAILS.includes(email)) {
+    return res.status(403).json({
+      success: false,
+      message: 'This account is not authorized to sign in.',
+    });
   }
+
+  const preferredUsername = req.get('X-Forwarded-Preferred-Username');
+  const fallbackUsername = email.split('@')[0];
+  const baseUsername = sanitizeUsername(preferredUsername || fallbackUsername);
 
   try {
-    // checks if user already exists
-    const existingUser = await User.findOne({ where: { email } });
-    if (existingUser) {
-      return res
-        .status(409)
-        .json({ error: 'A user with this email already exists.' });
+    let user = await User.findOne({ where: { email } });
+
+    if (!user) {
+      const username = await resolveUniqueUsername(baseUsername);
+      user = await User.create({ email, username, password: null });
     }
 
-    // hash the password before storing it
-    const hashedPassword = await bcrypt.hash(password, 10);
-    // pass email to the creation method
-    const user = await User.create({
-      username,
-      email,
-      password: hashedPassword,
-    });
-
-    // generate a JWT token for the new user
     const token = jwt.sign(
       { id: user.id, email: user.email, username: user.username },
       JWT_SECRET,
@@ -59,186 +111,33 @@ export const registerNewUser = async (req, res) => {
       },
     );
 
-    res.status(201).json({
-      success: true,
-      message: 'User account created successfully.',
-      token,
-      user: { id: user.id, username: user.username, email: user.email },
+    res.cookie(SESSION_COOKIE_NAME, token, {
+      ...SESSION_COOKIE_OPTIONS,
+      maxAge: SESSION_COOKIE_MAX_AGE_MS,
     });
-  } catch (error) {
-    console.error('Error registering new user:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error registering new user.',
-      error: error.message,
-    });
-  }
-};
-
-// SIGN IN USER
-export const signInUser = async (req, res) => {
-  try {
-    const { username, password } = req.body;
-
-    // basic input validation 
-    if (!username || !password) {
-      return res
-        .status(400)
-        .json({ error: 'Username and password are required.' });
-    }
-
-    // Use unscoped query to include password field
-    const user = await User.unscoped().findOne({
-      where: { username },
-    });
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials.',
-      });
-    }
-
-    // Compare the provided password with the hashed password in the database
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials.',
-      });
-    }
-
-    const token = jwt.sign(
-      { id: user.id, email: user.email, username: user.username },
-      JWT_SECRET,
-      {
-        expiresIn: JWT_EXPIRES_IN,
-      },
-    );
 
     res.status(200).json({
       success: true,
-      message: 'Signed in successfully.',
-      token,
+      message: 'Session established.',
       user: { id: user.id, username: user.username, email: user.email },
     });
   } catch (error) {
-    console.error('Error signing in:', error);
+    // never echo raw error details to the client — log server-side only
+    console.error('Error establishing session from proxy:', error);
     res.status(500).json({
       success: false,
-      message: 'Error signing in.',
-      error: error.message,
+      message: 'Error establishing session.',
     });
   }
 };
 
 // SIGN OUT CURRENT USER
 export const signOutUser = (_req, res) => {
-  // JWT is stateless — client discards the token
-  // If you add a token blocklist later, handle it here
+  // clears the httpOnly app session cookie. The Google-backed SSO session itself is
+  // terminated separately via OAuth2 Proxy's /oauth2/sign_out endpoint.
+  res.clearCookie(SESSION_COOKIE_NAME, SESSION_COOKIE_OPTIONS);
   res.status(200).json({
     success: true,
     message: 'Signed out successfully.',
   });
-};
-
-// FORGOT USER PASSWORD
-export const forgotPassword = async (req, res) => {
-  // Generates a short-lived reset token and emails the user a reset link.
-  // Always responds with 200 to prevent email enumeration.
-  const { email } = req.body;
-
-  if (!email) {
-    return res.status(400).json({ error: 'Email is required.' });
-  }
-
-  try {
-    const user = await User.findOne({ where: { email } });
-
-    if (user) {
-      // generate a cryptographically random raw token (sent in email)
-      const rawToken = crypto.randomBytes(32).toString('hex');
-      // store only the hash — never persist the raw token
-      const tokenHash = crypto
-        .createHash('sha256')
-        .update(rawToken)
-        .digest('hex');
-
-      user.resetPasswordToken = tokenHash;
-      user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-      await user.save();
-
-      const clientOrigin = process.env.CORS_ORIGIN || 'http://localhost:4200';
-      const resetUrl = `${clientOrigin}/reset-password?token=${rawToken}`;
-
-      await sendPasswordResetEmail(email, resetUrl);
-    }
-
-    // always return 200 so callers cannot enumerate registered emails
-    return res.status(200).json({
-      success: true,
-      message:
-        'If an account with that email exists, a reset link has been sent.',
-    });
-  } catch (error) {
-    console.error('Error in forgotPassword:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error processing password reset request.',
-      error: error.message,
-    });
-  }
-};
-
-// RESET USERS PASSWORD
-export const resetPassword = async (req, res) => {
-  // Validates the reset token and updates the user's password.
-  const { token, password } = req.body;
-
-  if (!token || !password) {
-    return res
-      .status(400)
-      .json({ error: 'Token and new password are required.' });
-  }
-
-  if (password.length < 8) {
-    return res
-      .status(400)
-      .json({ error: 'Password must be at least 8 characters.' });
-  }
-
-  try {
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-
-    const user = await User.findOne({
-      where: { resetPasswordToken: tokenHash },
-    });
-
-    if (
-      !user ||
-      !user.resetPasswordExpires ||
-      user.resetPasswordExpires < new Date()
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: 'Password reset token is invalid or has expired.',
-      });
-    }
-
-    user.password = await bcrypt.hash(password, 10);
-    user.resetPasswordToken = null;
-    user.resetPasswordExpires = null;
-    await user.save();
-
-    return res.status(200).json({
-      success: true,
-      message: 'Password has been reset successfully. You can now sign in.',
-    });
-  } catch (error) {
-    console.error('Error in resetPassword:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error resetting password.',
-      error: error.message,
-    });
-  }
 };

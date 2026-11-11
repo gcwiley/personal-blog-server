@@ -1,0 +1,10 @@
+# NOTE: src/dist (the Angular build output) is intentionally NOT excluded here —
+# unlike .gitignore, the Docker image needs it. It must exist before `docker build`
+# runs (see Dockerfile header comment / personal-blog-client's `npm run build-move`).
+
+node_modules
+.env
+.env.oauth2-proxy
+uploads
+.git
+*.md

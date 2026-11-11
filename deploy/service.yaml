@@ -1,0 +1,97 @@
+# Cloud Run multi-container ("sidecar") service manifest.
+#
+# OAuth2 Proxy is the ingress container — it receives all public traffic, handles
+# the Google SSO flow, and reverse-proxies authenticated requests to the app
+# container over localhost (Cloud Run sidecars share a network namespace, so this
+# is NOT the same as a docker-compose service name). The app container is never
+# reachable directly from the internet.
+#
+# Replace every ALL_CAPS placeholder below before deploying (see
+# personal-blog-server/docs/oauth2-proxy-deployment.md for the full runbook).
+# cloudbuild.yaml substitutes APP_IMAGE automatically at build time.
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: personal-blog
+  annotations:
+    run.googleapis.com/launch-stage: BETA
+spec:
+  template:
+    metadata:
+      annotations:
+        # oauth2-proxy must come up only after the app is ready to receive proxied requests
+        run.googleapis.com/container-dependencies: '{"oauth2-proxy":["app"]}'
+        # mounts the Cloud SQL Unix socket used by connect_to_sqldb.js in production
+        run.googleapis.com/cloudsql-instances: PROJECT_ID:REGION:INSTANCE_NAME
+    spec:
+      containers:
+        # --- ingress container: the only one reachable from the internet ---
+        - name: oauth2-proxy
+          image: quay.io/oauth2-proxy/oauth2-proxy:latest
+          ports:
+            - name: http1
+              containerPort: 8080
+          args:
+            - --provider=google
+            - --upstreams=http://localhost:3000/
+            - --http-address=0.0.0.0:8080
+            - --redirect-url=https://YOUR_CLOUD_RUN_URL/oauth2/callback
+            - --cookie-secure=true
+            - --authenticated-emails-file=/etc/oauth2-proxy/authenticated-emails.txt
+            # skips OAuth2 Proxy's own provider-chooser page — the app's /signin page
+            # is the single entry point, and there's only one provider configured
+            - --skip-provider-button=true
+            # requests under /api get a clean 401 instead of a redirect-to-Google when
+            # the session is missing/expired, so the Angular interceptor can handle it
+            - --api-routes=^/api
+            - --pass-user-headers=true
+            # Cloud Run's own frontend is a reverse proxy in front of this container
+            - --reverse-proxy=true
+          env:
+            - name: OAUTH2_PROXY_CLIENT_ID
+              value: YOUR_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: oauth2-proxy-client-secret
+                  key: latest
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: oauth2-proxy-cookie-secret
+                  key: latest
+          volumeMounts:
+            - name: authenticated-emails
+              mountPath: /etc/oauth2-proxy
+          resources:
+            limits:
+              cpu: 500m
+              memory: 256Mi
+
+        # --- sidecar: the Express/Angular app — only reachable via oauth2-proxy above ---
+        - name: app
+          image: APP_IMAGE
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: '3000'
+            # PGSQL_*, JWT_SECRET, and CORS_ORIGIN are fetched from Secret Manager by
+            # src/secrets.js at startup — they don't need to be set here
+            - name: INSTANCE_CONNECTION_NAME
+              value: PROJECT_ID:REGION:INSTANCE_NAME
+            - name: SECRETS_PROJECT_ID
+              value: PROJECT_ID
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+
+      volumes:
+        - name: authenticated-emails
+          secret:
+            secretName: oauth2-proxy-authenticated-emails
+            items:
+              - key: latest
+                path: authenticated-emails.txt

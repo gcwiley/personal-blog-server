@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { SESSION_COOKIE_NAME } from '../controllers/auth.controller.js';
 
 // throw an error if the JWT_SECRET is missing to prevent insecure defaults in production
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -7,20 +8,13 @@ if (!JWT_SECRET) {
 }
 
 export const authenticateToken = (req, res, next) => {
-  // retrieve the token from the Authorization header
-  const authHeader = req.get('Authorization');
+  // the app JWT lives in an httpOnly cookie set by createSessionFromProxy — it is
+  // never exposed to client-side JavaScript, so it is never sent via an
+  // Authorization header
+  const token = req.cookies?.[SESSION_COOKIE_NAME];
 
-  // ensure the header exists and explicitly starts with 'Bearer '
-  if (!authHeader || !authHeader.toLowerCase().startsWith('bearer ')) {
-    return res.status(401).json({ error: 'Access denied. No token provided.' });
-  }
-
-  // extract the token by removing the 'Bearer ' prefix and trimming any whitespace
-  const token = authHeader.slice(7).trim();
-
-  // if the token is empty after trimming, treat it as missing
   if (!token) {
-    return res.status(401).json({ error: 'Access denied. No token provided.' });
+    return res.status(401).json({ error: 'Access denied. No session cookie provided.' });
   }
 
   // verify the token using the JWT_SECRET and specify the expected algorithm
@@ -28,10 +22,10 @@ export const authenticateToken = (req, res, next) => {
     if (error) {
       // differentiate between expired and invalid tokens
       if (error.name === 'TokenExpiredError') {
-        return res.status(401).json({ error: 'Token has expired.' }); // often 401 triggers a client refresh
+        return res.status(401).json({ error: 'Session has expired.' }); // often 401 triggers a client refresh
       }
       // for other verification errors, return a 403 to indicate the token is invalid
-      return res.status(403).json({ error: 'Invalid token.' });
+      return res.status(403).json({ error: 'Invalid session.' });
     }
 
     // attach the decoded user information to the request object
