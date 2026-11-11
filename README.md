@@ -9,7 +9,7 @@ The API provides three resource groups:
 
 - **Posts** — full CRUD for blog posts, plus paginated listing, full-text search across title, category, and date, a recent-posts feed, and a post count endpoint.
 - **Users** — authenticated profile management (read, update, delete) scoped to the signed-in user.
-- **Auth** — fix this! - use event tracker as a guide.
+- **Auth** — Uses **OAuth2 Proxy** as an authentication gateway
 
 In production the server runs on Google App Engine (Node.js 24), connects to a Cloud SQL PostgreSQL instance over a Unix socket, loads secrets from Google Cloud Secret Manager, and stores uploaded files in Google Cloud Storage. In development it connects to a local PostgreSQL instance over TCP using credentials from a `.env` file.
 
@@ -18,7 +18,7 @@ In production the server runs on Google App Engine (Node.js 24), connects to a C
 - **Runtime**: Node.js 24 (ESM modules — `"type": "module"` in `package.json`)
 - **Framework**: Express 5
 - **Database**: PostgreSQL via Sequelize ORM (hosted on Google Cloud SQL)
-- **Auth**: Fix this! Use Event Tracker as a guide
+- **Auth**: Uses **OAuth2 Proxy** as an authentication gateway.
 - **File Storage**: Google Cloud Storage (via `multer` + `@google-cloud/storage`)
 - **Secrets**: Google Cloud Secret Manager (production) / `.env` file (development)
 - **Deploy Target**: Google App Engine (`app.yaml`, `nodejs24` runtime)

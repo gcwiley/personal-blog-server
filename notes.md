@@ -6,11 +6,11 @@ A `Chart.yaml` file is the metadata manifest for a Helm chart - it's basically t
 
 ## values.yaml
 
-A `values.yaml` file is the default configuration input for a Helm chart - it's where you define the "knobs" that get substitued in the templates in `templates/` at install/upgrade time, instead of hardcoding things like image names, ports, or replica counts directly into your Kubernetes manifests.
+A `values.yaml` file is the default configuration input for a Helm chart - it's where you define the "knobs" that get substituted in the templates in `templates/` at install/upgrade time, instead of hardcoding things like image names, ports, or replica counts directly into your Kubernetes manifests.
 
 ## Why it's useful
 
-* No hardcoding / no duplicatation - change the image tag or replica count in one place instead of editing YAML manifests directly.
+* No hardcoding / no duplication - change the image tag or replica count in one place instead of editing YAML manifests directly.
 
 * Environmental overrides - you can keep `values.yaml` as sane defaults, then override per-environment with - fix this!
 
